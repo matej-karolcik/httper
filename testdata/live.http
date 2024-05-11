@@ -1,0 +1,29 @@
+POST http://localhost:3030/presto?foo=bar HTTP/1.1
+Content-Type: application/json
+
+{
+    "format": "webp",
+    "width": 2400,
+    "layers": [
+        {
+            "specs": {
+                "bucket": "gltf",
+                "key": "00_sweatshirt_3000x4000_front_men_id-1398.png",
+                "merch": true,
+                "composite": "multiply",
+                "color": "#f8f8f8",
+                "pivot": false
+            },
+            "type": "mask"
+        },
+        {
+            "specs": {
+                "canvasId": 0
+            },
+            "type": "texture"
+        }
+    ],
+    "images": [
+        "https:\/\/jq-creator-admin-backend-designs.s3.eu-central-1.amazonaws.com\/a999c343-c7b0-47f8-b57d-862e450500bc\/images\/recognition.webp?aa01941f-8260-421b-b267-086f088eabe2"
+    ]
+}

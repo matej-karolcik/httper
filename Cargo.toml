@@ -1,0 +1,12 @@
+[package]
+name = "httper"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.83"
+chrono = "0.4.38"
+mime = "0.3.17"
+mime_guess = "2.0.4"
+reqwest = "0.12.4"
+tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "macros"] }
