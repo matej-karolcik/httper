@@ -1,33 +1,73 @@
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 use chrono::{SecondsFormat, Utc};
+use clap::ArgAction;
 use mime_guess::mime;
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    let args = std::env::args().collect::<Vec<String>>();
-    if args.len() < 2 {
-        eprintln!("Usage: {} <path to .http file>", args[0]);
-        std::process::exit(1);
-    }
+use crate::error::Error;
+use crate::error::Error::{
+    EmptyRequest, InvalidHeader, InvalidMethod, InvalidUrl, NoRequestLine, NotEnoughParts,
+    RequestError, ResponseBodyError,
+};
 
-    let filepath = &args[1];
+mod error;
+
+fn main() -> Result<()> {
+    // todo attack mode ???
+    let cmd = clap::Command::new("httper")
+        .arg(
+            clap::Arg::new("file")
+                .help("File containing the HTTP request")
+                .required(true),
+        )
+        .arg(
+            clap::Arg::new("verbose")
+                .action(ArgAction::SetTrue)
+                .short('v')
+                .long("verbose")
+                .help("Print verbose output"),
+        )
+        .arg(
+            clap::Arg::new("output")
+                .short('o')
+                .long("output")
+                .value_name("FILE")
+                .help("Output file for the response"),
+        );
+
+    let matches = cmd.get_matches();
+    let filepath = matches.get_one::<String>("file").unwrap();
+    let output = matches.get_one::<String>("output");
+    let verbose = matches.get_flag("verbose");
 
     let content = std::fs::read_to_string(filepath)?;
 
-    let client = reqwest::Client::new();
-    let request = parse(content.as_str(), client)?;
+    let client = reqwest::blocking::ClientBuilder::new()
+        .connection_verbose(true)
+        .use_rustls_tls()
+        .danger_accept_invalid_certs(true)
+        .build()?;
+
+    let request = parse(content.as_str(), client.clone())?;
+
+    if verbose {
+        println!("{:?}", request);
+    }
 
     let start = std::time::Instant::now();
-    let response = reqwest::Client::new()
-        .execute(request)
-        .await
-        .context("Failed to send request")?;
+    let response = client.execute(request).map_err(RequestError)?;
 
-    let content_type = response
-        .headers()
+    let duration = start.elapsed();
+
+    let headers = response.headers().clone();
+    let status_code = response.status();
+    let content_length = response.content_length();
+    let bytes = response.bytes().map_err(ResponseBodyError)?;
+
+    let content_type = headers
         .iter()
+        // todo combine these
         .map(|(k, v)| (k, v.to_str().unwrap_or_default()))
         .filter(|(k, v)| {
             k.to_string() == reqwest::header::CONTENT_TYPE.to_string()
@@ -44,46 +84,74 @@ async fn main() -> Result<()> {
         if extensions.is_some() {
             let extension = extensions.unwrap().first().unwrap();
 
-            let filename = format!(
-                "response-{}.{}",
-                Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false),
-                extension
-            );
-            std::fs::write(&filename, response.bytes().await?.as_ref())?;
+            let filename = if let Some(output) = output {
+                output.to_string()
+            } else {
+                format!(
+                    "response-{}.{}",
+                    Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+                    extension
+                )
+            };
+
+            if let Err(e) = std::fs::write(filename, bytes.clone()) {
+                eprintln!("Failed to write response to file: {}", e);
+            }
         }
     }
 
-    // todo
-    // Response code: 200 (OK); Time: 3148ms (3 s 148 ms); Content length: 5183823 bytes (5,18 MB)
+    let content_length = content_length.unwrap_or(bytes.len() as u64);
 
-    println!("done in {:?}", start.elapsed());
+    if verbose {
+        println!("Headers: {:?}", headers);
+    }
+
+    println!(
+        "Response code: {}; Time: {}ms ({:?}); Content length: {} bytes ({:.2} MB)",
+        status_code,
+        duration.as_millis(),
+        duration,
+        content_length,
+        content_length as f64 / 1_000_000.0,
+    );
 
     Ok(())
 }
 
-fn parse(content: &str, client: reqwest::Client) -> Result<reqwest::Request> {
+fn parse(
+    content: &str,
+    client: reqwest::blocking::Client,
+) -> Result<reqwest::blocking::Request, Error> {
     let mut lines = content.lines();
 
     if lines.clone().count() < 1 {
-        // todo error enum
-        return Err(anyhow!("Empty file"));
+        return Err(EmptyRequest);
     }
 
-    let first_line = lines.next().unwrap();
+    let first_line = lines
+        .find(|line| !line.is_empty() && !line.starts_with("//") && !line.starts_with('#'))
+        .ok_or(NoRequestLine)?;
+
     let parts = first_line
         .split(' ')
         .map(String::from)
         .collect::<Vec<String>>();
 
     if parts.len() < 2 {
-        return Err(anyhow!("Invalid request line"));
+        return Err(NotEnoughParts(first_line.to_string()));
     }
 
-    let method = reqwest::Method::from_str(&parts[0]).context("Invalid method")?;
-    let url = parts[1].parse::<reqwest::Url>().context("Invalid url")?;
-    // todo this is ugly
+    let method =
+        reqwest::Method::from_str(&parts[0]).map_err(|_| InvalidMethod(parts[0].to_string()))?;
+
+    let url = parts[1]
+        .parse::<reqwest::Url>()
+        .map_err(|e| InvalidUrl(parts[1].to_string(), e))?;
+
     let version = if let Some(v) = parts.get(2) {
         v
+    } else if url.scheme() == "https" {
+        "HTTP/2.0"
     } else {
         "HTTP/1.1"
     };
@@ -105,18 +173,16 @@ fn parse(content: &str, client: reqwest::Client) -> Result<reqwest::Request> {
         }
 
         if !line.contains(':') {
-            return Err(anyhow!(format!("Invalid header: {}", line)));
+            return Err(InvalidHeader(line.to_string()));
         }
 
+        // todo authorization
         let (key, value) = line.split_once(':').unwrap();
 
         builder = builder.header(key.trim(), value.trim());
     }
 
-    let request = builder
-        .body(body)
-        .build()
-        .context("Failed to build request")?;
+    let request = builder.body(body).build().map_err(RequestError)?;
 
     Ok(request)
 }
@@ -125,8 +191,8 @@ fn map_version(v: &str) -> reqwest::Version {
     match v.to_uppercase().trim() {
         "HTTP/0.9" => reqwest::Version::HTTP_09,
         "HTTP/1.0" => reqwest::Version::HTTP_10,
-        "HTTP/2.0" => reqwest::Version::HTTP_2,
-        "HTTP/3.0" => reqwest::Version::HTTP_3,
+        "HTTP/2.0" | "HTTP/2" => reqwest::Version::HTTP_2,
+        "HTTP/3.0" | "HTTP/3" => reqwest::Version::HTTP_3,
         _ => reqwest::Version::HTTP_11,
     }
 }

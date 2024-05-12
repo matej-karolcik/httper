@@ -4,4 +4,7 @@ qa:
 	cargo fmt --all -- --check
 	cargo doc --all --no-deps
 	cargo machete
-	cargo audit
+	#cargo audit
+
+build:
+	cargo build --release

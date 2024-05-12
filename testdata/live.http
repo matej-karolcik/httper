@@ -1,4 +1,4 @@
-POST http://localhost:3030/presto?foo=bar HTTP/1.1
+POST http://localhost:3030/presto?foo=bar
 Content-Type: application/json
 
 {
