@@ -1,0 +1,2 @@
+GET https://localhost:8080/basic-auth
+Authorization: Basic foo bar

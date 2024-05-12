@@ -1,0 +1,7 @@
+POST https://echo.free.beeceptor.com
+Content-Type: application/json
+
+{
+    "name": "John Doe",
+    "age": 25
+}

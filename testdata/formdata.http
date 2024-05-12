@@ -1,5 +1,16 @@
-POST https://localhost:8080
+POST https://localhost:8080/form-data
 Content-Type: multipart/form-data; boundary=foo
 
 --foo
-Content-Disposition: form-data; name="file"; filename="testdata/live.http"
+Content-Disposition: form-data; name="image"; filename="Cargo.lock"
+Content-Type: application/octet-stream
+
+< ../Cargo.lock
+--foo
+content-Disposition: form-data; name="title"
+Content-Type: text/plain
+
+test text
+
+foobar
+--foo--

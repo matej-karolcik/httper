@@ -5,11 +5,17 @@ pub(crate) enum Error {
     #[error("Error sending request: {0}")]
     RequestError(reqwest::Error),
 
+    #[error("Error parsing request body: {0}")]
+    RequestBodyError(anyhow::Error),
+
     #[error("Error reading response: {0}")]
     ResponseBodyError(reqwest::Error),
 
     #[error("Invalid header: {0}")]
     InvalidHeader(String),
+
+    #[error("Missing form data boundary: {0}")]
+    FormDataBoundaryMissing(String),
 
     #[error("Invalid method: {0}")]
     InvalidMethod(String),
