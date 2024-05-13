@@ -1,5 +1,7 @@
 /target
+/tmp
 
 .idea/
 *.png
 *.htm
+*.json
