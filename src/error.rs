@@ -3,13 +3,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub(crate) enum Error {
     #[error("Error sending request: {0}")]
-    RequestError(reqwest::Error),
+    SendRequest(reqwest::Error),
 
     #[error("Error parsing request body: {0}")]
-    RequestBodyError(anyhow::Error),
+    RequestBody(anyhow::Error),
 
     #[error("Error reading response: {0}")]
-    ResponseBodyError(reqwest::Error),
+    ResponseBody(reqwest::Error),
 
     #[error("Invalid header: {0}")]
     InvalidHeader(String),

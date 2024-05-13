@@ -7,7 +7,7 @@ use reqwest::blocking::RequestBuilder;
 use crate::error::Error;
 use crate::error::Error::{
     EmptyRequest, FormDataBoundaryMissing, InvalidHeader, InvalidMethod, InvalidUrl, NoRequestLine,
-    NotEnoughParts, RequestBodyError, RequestError,
+    NotEnoughParts, RequestBody, SendRequest,
 };
 
 pub fn parse_request(
@@ -96,10 +96,10 @@ pub fn parse_request(
     }
 
     if let Some(content_type) = content_type {
-        builder = attach_body(builder, content_type, body, directory).map_err(RequestBodyError)?;
+        builder = attach_body(builder, content_type, body, directory).map_err(RequestBody)?;
     }
 
-    let request = builder.build().map_err(RequestError)?;
+    let request = builder.build().map_err(SendRequest)?;
 
     Ok(request)
 }

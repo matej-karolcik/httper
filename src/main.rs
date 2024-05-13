@@ -4,7 +4,7 @@ use anyhow::Result;
 use chrono::{SecondsFormat, Utc};
 use clap::ArgAction;
 
-use crate::error::Error::{RequestError, ResponseBodyError};
+use crate::error::Error::{SendRequest, ResponseBody};
 
 mod error;
 mod parse;
@@ -58,14 +58,14 @@ fn main() -> Result<()> {
     }
 
     let start = std::time::Instant::now();
-    let response = client.execute(request).map_err(RequestError)?;
+    let response = client.execute(request).map_err(SendRequest)?;
 
     let duration = start.elapsed();
 
     let headers = response.headers().clone();
     let status_code = response.status();
     let content_length = response.content_length();
-    let bytes = response.bytes().map_err(ResponseBodyError)?;
+    let bytes = response.bytes().map_err(ResponseBody)?;
 
     let content_type = headers
         .iter()
