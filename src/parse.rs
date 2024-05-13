@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::borrow::Cow;
 use std::str::FromStr;
 
 use anyhow::Result;
@@ -170,7 +170,7 @@ fn parse_form_data(
 
         let mut is_body = false;
         let mut body_raw = vec![];
-        let mut headers_raw = String::new();
+        let mut headers_raw = vec![];
 
         for line in lines {
             if line.is_empty() {
@@ -187,16 +187,13 @@ fn parse_form_data(
                     continue;
                 }
 
-                body_raw.extend(line.as_bytes());
-                body_raw.push(b'\n');
+                body_raw.push(line);
             } else {
-                // todo vector of strings
-                headers_raw.push_str(line.as_str());
-                headers_raw.push('\n');
+                headers_raw.push(line);
             }
         }
 
-        let (headers, name, filename) = extract_form_headers(&headers_raw);
+        let (headers, name, filename) = extract_form_headers(headers_raw);
         if name.is_none() && headers.is_empty() {
             continue;
         }
@@ -212,15 +209,13 @@ fn parse_form_data(
 }
 
 fn extract_form_headers(
-    headers: &String,
+    headers: Vec<String>,
 ) -> (reqwest::header::HeaderMap, Option<String>, Option<String>) {
-    let lines = headers.lines();
-
     let mut name = None;
     let mut filename = None;
-    let mut headers_raw = HashMap::new();
+    let mut header_map = reqwest::header::HeaderMap::new();
 
-    for line in lines {
+    for line in headers {
         if line
             .to_lowercase()
             .trim()
@@ -248,40 +243,37 @@ fn extract_form_headers(
 
         if line.contains(':') {
             let (key, value) = line.split_once(':').unwrap();
-            headers_raw.insert(key.trim(), value.trim());
+            header_map.insert(
+                reqwest::header::HeaderName::from_str(key).unwrap(),
+                reqwest::header::HeaderValue::from_str(value).unwrap(),
+            );
         }
     }
 
-    let mut headers = reqwest::header::HeaderMap::new();
-
-    for (key, value) in headers_raw {
-        headers.insert(
-            reqwest::header::HeaderName::from_str(key).unwrap(),
-            reqwest::header::HeaderValue::from_str(value).unwrap(),
-        );
-    }
-
-    (headers, name, filename)
+    (header_map, name, filename)
 }
 
 fn extract_form_body(
-    content: Vec<u8>,
+    content: Vec<String>,
     directory: &str,
 ) -> Result<reqwest::blocking::multipart::Part> {
     let first_char = if content.is_empty() {
         None
     } else {
-        Some(content[0] as char)
+        Some(content[0].chars().next().unwrap_or_default())
     };
 
     if first_char == Some('<') {
-        let filename = String::from_utf8(content)?;
-        let filename = filename.trim_start_matches('<').trim();
+        let filename = content[0].trim_start_matches('<').trim();
+        // todo could be nicer
         let filepath = format!("{}/{}", directory, filename);
         let reader = std::fs::File::open(filepath)?;
         Ok(reqwest::blocking::multipart::Part::reader(reader))
     } else if first_char.is_some() {
-        Ok(reqwest::blocking::multipart::Part::bytes(content))
+        let body = Cow::from(content.join("\n"));
+        Ok(reqwest::blocking::multipart::Part::bytes(
+            body.into_owned().into_bytes(),
+        ))
     } else {
         Ok(reqwest::blocking::multipart::Part::text(""))
     }
