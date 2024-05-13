@@ -68,12 +68,16 @@ func main() {
 					break
 				}
 
-				_, _ = fmt.Fprintf(w, "Part: %s, %s\n", part.FormName(), part.FileName())
+				_, _ = fmt.Fprintf(w, "Part: %s, '%s'\n", part.FormName(), part.FileName())
 
 				content, err := io.ReadAll(part)
 				if err != nil {
 					_, _ = fmt.Fprintf(w, "Error reading part: %s\n", err)
 					continue
+				}
+
+				if part.FileName() == "" {
+					_, _ = fmt.Fprintln(w, string(content))
 				}
 
 				_, _ = fmt.Fprintf(w, "Content-length: %d\n", len(content))
