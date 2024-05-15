@@ -51,6 +51,10 @@ fn main() -> Result<()> {
 
     if verbose {
         println!("\n{:?}", request);
+        let body = request.body();
+        if body.is_some() {
+            println!("{:?}", body.unwrap());
+        }
         println!("{}", "-".repeat(80));
     }
 
@@ -119,8 +123,11 @@ fn main() -> Result<()> {
 
     if verbose {
         println!("Headers: {:?}", headers);
-        if !bytes.is_empty() {
-            println!("Content: {}", String::from_utf8_lossy(&bytes));
+        if let Some(content_type) = content_type.first() {
+            if !content_type.to_string().starts_with("image") {
+                println!("Content: {}", String::from_utf8_lossy(&bytes));
+            }
+            println!("Content type: {:?}", content_type);
         }
     }
 

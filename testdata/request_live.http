@@ -1,0 +1,29 @@
+POST https://www.juniqe.org/preview
+Content-Type: application/json
+
+{
+  "format": "webp",
+  "width": 2400,
+  "layers": [
+    {
+      "specs": {
+        "bucket": "jq-creator-admin-backend-preview-masks",
+        "key": "\/gimme-3d-batch-3\/t-shirt-kid-id-1373\/3000x4000\/2400\/00_t-shirt-kid_3000x4000_front_women_id-1373.webp",
+        "merch": true,
+        "composite": "multiply",
+        "color": "#f8f8f8",
+        "pivot": false
+      },
+      "type": "mask"
+    },
+    {
+      "specs": {
+        "canvasId": 0
+      },
+      "type": "texture"
+    }
+  ],
+  "images": [
+    "https:\/\/jq-creator-admin-backend-designs.s3.eu-central-1.amazonaws.com\/a999c343-c7b0-47f8-b57d-862e450500bc\/images\/recognition.webp?aa01941f-8260-421b-b267-086f088eabe2"
+  ]
+}

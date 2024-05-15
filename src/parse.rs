@@ -127,7 +127,9 @@ fn attach_body(
         .trim();
 
     let builder = match trimmed {
-        "application/json" => builder.json(content.as_str()),
+        "application/json" => builder
+            .header(reqwest::header::CONTENT_TYPE, content_type)
+            .body(content),
         // todo who knows if this works
         "application/x-www-form-urlencoded" => builder.form(content.as_str()),
         "multipart/form-data" => {
