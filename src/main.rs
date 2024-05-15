@@ -4,7 +4,7 @@ use anyhow::Result;
 use chrono::{SecondsFormat, Utc};
 use clap::ArgAction;
 
-use crate::error::Error::{SendRequest, ResponseBody};
+use crate::error::Error::{ResponseBody, SendRequest};
 
 mod error;
 mod parse;
@@ -36,16 +36,13 @@ fn main() -> Result<()> {
     let output = matches.get_one::<String>("output");
     let verbose = matches.get_flag("verbose");
 
-    // todo use reader instead of reading the whole file
     let content = std::fs::read_to_string(filepath)?;
-    let directory = std::path::Path::new(filepath)
-        .parent()
-        .unwrap()
-        .to_str()
-        .unwrap();
+
+    let full_path = std::env::current_dir()?.join(filepath);
+    let directory = full_path.parent().unwrap().to_str().unwrap();
 
     let client = reqwest::blocking::ClientBuilder::new()
-        .connection_verbose(true)
+        .connection_verbose(verbose)
         .use_rustls_tls()
         .danger_accept_invalid_certs(true)
         .build()?;
