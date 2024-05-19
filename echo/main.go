@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path"
 	"strings"
 )
 
@@ -87,10 +89,18 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {})
 
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
 	const addr = ":8080"
 	fmt.Println("Listening on", addr)
 
-	if err := http.ListenAndServeTLS(addr, "./certs/localhost+1.pem", "./certs/localhost+1-key.pem", nil); err != nil {
+	certFile := path.Join(wd, "localhost+1.pem")
+	keyFile := path.Join(wd, "localhost+1-key.pem")
+
+	if err := http.ListenAndServeTLS(addr, certFile, keyFile, nil); err != nil {
 		panic(err)
 	}
 }
