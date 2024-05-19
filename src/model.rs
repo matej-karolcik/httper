@@ -31,21 +31,24 @@ where
     R: Read + Send + Clone + 'static,
 {
     fn text(value: String) -> Self {
-        let mut empty = Self::default();
-        empty.text = Some(value);
-        empty
+        Self {
+            text: Some(value),
+            ..Self::default()
+        }
     }
 
     fn bytes(value: Vec<u8>) -> Self {
-        let mut empty = Self::default();
-        empty.bytes = Some(value);
-        empty
+        Self {
+            bytes: Some(value),
+            ..Self::default()
+        }
     }
 
     fn reader(r: R) -> Self {
-        let mut empty = Self::default();
-        empty.reader = Some(r);
-        empty
+        Self {
+            reader: Some(r),
+            ..Self::default()
+        }
     }
 
     fn with_filename(self, value: String) -> Self {

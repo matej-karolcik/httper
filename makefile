@@ -14,3 +14,6 @@ mkcert:
 
 echo-server:
 	go run main.go
+
+test:
+	cargo nextest r

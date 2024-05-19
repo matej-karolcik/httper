@@ -182,6 +182,5 @@ Content-Type: application/octet-stream
         let maybe_part = extract_form_part(body_content, "..");
 
         assert!(maybe_part.is_ok());
-        let part = maybe_part.unwrap();
     }
 }
