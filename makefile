@@ -1,6 +1,6 @@
 qa:
 	cargo clippy --all
-	cargo test --all
+	cargo nextest r
 	cargo fmt --all -- --check
 	cargo doc --all --no-deps
 	cargo machete

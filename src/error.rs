@@ -26,11 +26,11 @@ pub(crate) enum Error {
     #[error("Invalid url '{0}': {1}")]
     InvalidUrl(String, url::ParseError),
 
-    #[error("Empty request file")]
-    EmptyRequest,
+    #[error("Empty request file: {0}")]
+    EmptyRequest(String),
 
-    #[error("No request line found")]
-    NoRequestLine,
+    #[error("No request line found: {0}")]
+    NoRequestLine(String),
 
     #[error("Not enough parts in request line: {0}")]
     NotEnoughParts(String),

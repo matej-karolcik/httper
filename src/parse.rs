@@ -5,8 +5,8 @@ use reqwest::blocking::RequestBuilder;
 
 use crate::error::Error;
 use crate::error::Error::{
-    EmptyRequest, InvalidHeader, InvalidMethod, InvalidUrl, NoRequestLine,
-    NotEnoughParts, RequestBody, SendRequest,
+    EmptyRequest, InvalidMethod, InvalidUrl, NoRequestLine, NotEnoughParts, RequestBody,
+    SendRequest,
 };
 use crate::form::parse_form_data;
 
@@ -15,15 +15,20 @@ pub fn parse_request(
     client: reqwest::blocking::Client,
     directory: &str,
 ) -> Result<reqwest::blocking::Request, Error> {
-    let mut lines = content.lines();
-
-    if lines.clone().count() < 1 {
-        return Err(EmptyRequest);
+    if content.trim().is_empty() {
+        return Err(EmptyRequest(content.to_string()));
     }
 
-    let first_line = lines
-        .find(|line| !line.is_empty() && !line.starts_with("//") && !line.starts_with('#'))
-        .ok_or(NoRequestLine)?;
+    let content = content
+        .lines()
+        .filter(|line| !line.starts_with("//") && !line.starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let (head, body) = content.split_once("\n\n").unwrap_or((content.as_str(), ""));
+    let (first_line, headers) = head
+        .split_once('\n')
+        .ok_or(NoRequestLine(body.to_string()))?;
 
     let parts = first_line
         .split(' ')
@@ -49,54 +54,13 @@ pub fn parse_request(
         "HTTP/1.1"
     };
 
-    let mut builder = client.request(method, url).version(map_version(version));
+    let builder = client.request(method, url).version(map_version(version));
 
-    let mut is_body = false;
-    let mut body = String::new();
-    let mut content_type = None;
-
-    for line in lines {
-        if line.is_empty() {
-            is_body = true;
-        }
-
-        if is_body {
-            body.push_str(line);
-            body.push('\n');
-            continue;
-        }
-
-        if !line.contains(':') {
-            return Err(InvalidHeader(line.to_string()));
-        }
-
-        let (key, value) = line.split_once(':').unwrap();
-
-        if key.to_lowercase().trim() == reqwest::header::CONTENT_TYPE {
-            content_type = Some(value.trim().to_string());
-            continue;
-        }
-
-        if key.to_lowercase().trim() == reqwest::header::AUTHORIZATION {
-            let value = value.trim();
-            if value.starts_with("Bearer") {
-                builder = builder.bearer_auth(value.trim_start_matches("Bearer").trim());
-                continue;
-            } else if value.starts_with("Basic") {
-                let value = value.trim_start_matches("Basic").trim();
-                let (username, password) = value
-                    .split_once(' ')
-                    .ok_or(InvalidHeader(value.to_string()))?;
-                builder = builder.basic_auth(username, Some(password));
-                continue;
-            }
-        }
-
-        builder = builder.header(key.trim(), value.trim());
-    }
+    let (content_type, mut builder) = extract_headers(headers.to_string(), builder)?;
 
     if let Some(content_type) = content_type {
-        builder = attach_body(builder, content_type, body, directory).map_err(RequestBody)?;
+        builder =
+            attach_body(builder, content_type, body.to_string(), directory).map_err(RequestBody)?;
     }
 
     let request = builder.build().map_err(SendRequest)?;
@@ -141,4 +105,48 @@ fn attach_body(
     };
 
     Ok(builder)
+}
+
+fn extract_headers(
+    headers_raw: String,
+    mut builder: RequestBuilder,
+) -> Result<(Option<String>, RequestBuilder), crate::error::Error> {
+    let mut content_type = None;
+
+    let lines = headers_raw.lines();
+
+    for line in lines {
+        if !line.contains(':') {
+            return Err(Error::InvalidHeader(line.to_string()));
+        }
+
+        let (key, value) = line.split_once(':').unwrap();
+
+        if key.to_lowercase().trim() == reqwest::header::CONTENT_TYPE {
+            content_type = Some(value.trim().to_string());
+            continue;
+        }
+
+        if key.to_lowercase().trim() == reqwest::header::AUTHORIZATION {
+            let value = value.trim();
+            if value.starts_with("Bearer") {
+                builder = builder.bearer_auth(value.trim_start_matches("Bearer").trim());
+            } else if value.starts_with("Basic") {
+                let value = value.trim_start_matches("Basic").trim();
+
+                let creds = value.split_once(' ');
+                if creds.is_none() {
+                    return Err(Error::InvalidHeader(line.to_string()));
+                }
+
+                let (username, password) = creds.unwrap();
+                builder = builder.basic_auth(username.trim(), Some(password.trim()));
+            }
+
+            continue;
+        }
+        builder = builder.header(key.trim(), value.trim());
+    }
+
+    Ok((content_type, builder))
 }
