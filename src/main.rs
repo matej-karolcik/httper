@@ -1,13 +1,15 @@
 use std::str::FromStr;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{SecondsFormat, Utc};
 use clap::ArgAction;
 
 use crate::error::Error::{ResponseBody, SendRequest};
 
 mod error;
+mod form;
 mod parse;
+mod model;
 
 fn main() -> Result<()> {
     let cmd = clap::Command::new("httper")
@@ -36,7 +38,8 @@ fn main() -> Result<()> {
     let output = matches.get_one::<String>("output");
     let verbose = matches.get_flag("verbose");
 
-    let content = std::fs::read_to_string(filepath)?;
+    let content =
+        std::fs::read_to_string(filepath).context(format!("cannot open file at: {}", filepath))?;
 
     let full_path = std::env::current_dir()?.join(filepath);
     let directory = full_path.parent().unwrap().to_str().unwrap();

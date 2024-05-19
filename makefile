@@ -11,3 +11,6 @@ build:
 
 mkcert:
 	mkcert localhost 127.0.0.1 ::1
+
+echo-server:
+	go run main.go
