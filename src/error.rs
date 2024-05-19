@@ -17,6 +17,9 @@ pub(crate) enum Error {
     #[error("Missing form data boundary: {0}")]
     FormDataBoundaryMissing(String),
 
+    #[error("Form part lacks a name")]
+    FormPartNameMissing,
+
     #[error("Invalid method: {0}")]
     InvalidMethod(String),
 

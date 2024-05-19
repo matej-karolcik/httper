@@ -1,12 +1,13 @@
-use std::str::FromStr;
+use std::collections::HashMap;
 
-use crate::error::Error::FormDataBoundaryMissing;
+use crate::error::Error::{FormDataBoundaryMissing, FormPartNameMissing};
+use crate::model;
 
 pub(crate) fn parse_form_data(
     content_type: String,
     content: String,
     directory: &str,
-) -> anyhow::Result<reqwest::blocking::multipart::Form> {
+) -> anyhow::Result<model::Form> {
     let boundary = content_type
         .split(';')
         .map(|s| s.trim())
@@ -14,7 +15,7 @@ pub(crate) fn parse_form_data(
         .map(|part| part.trim_start_matches("boundary="))
         .ok_or(FormDataBoundaryMissing(content_type.clone()))?;
 
-    let mut form = reqwest::blocking::multipart::Form::new();
+    let mut form = model::Form::new();
     let delimiter = format!("--{}", boundary);
 
     let content_parts = content
@@ -27,81 +28,60 @@ pub(crate) fn parse_form_data(
             continue;
         }
 
-        // let (head, body) = part.split_once("\n\n").unwrap_or((part.as_str(), ""));
+        let (name, part) = extract_form_part(part, directory)?;
 
-        let lines = part.lines().map(String::from).collect::<Vec<_>>();
-
-        let mut is_body = false;
-        let mut body_raw = vec![];
-        let mut headers_raw = vec![];
-
-        for line in lines {
-            if line.is_empty() {
-                if headers_raw.is_empty() {
-                    continue;
-                } else if body_raw.is_empty() {
-                    is_body = true;
-                    continue;
-                }
-            }
-
-            if is_body {
-                if line.is_empty() && body_raw.is_empty() {
-                    continue;
-                }
-
-                body_raw.push(line);
-            } else {
-                headers_raw.push(line);
-            }
-        }
-
-        let (headers, name, filename) = extract_part_headers(headers_raw);
-        if name.is_none() && headers.is_empty() {
-            continue;
-        }
-
-        let part = extract_form_part(body_raw, directory)?
-            .file_name(filename.unwrap_or_default())
-            .headers(headers);
-
-        form = form.part(name.unwrap_or_default(), part);
+        form.part(name, part);
     }
 
     Ok(form)
 }
 
-fn extract_form_part(
-    content: Vec<String>,
-    directory: &str,
-) -> anyhow::Result<reqwest::blocking::multipart::Part> {
-    let first_char = if content.is_empty() {
+fn extract_form_part(part: String, directory: &str) -> anyhow::Result<(String, model::Part)> {
+    let (head, body) = part.split_once("\n\n").unwrap_or((part.as_str(), ""));
+
+    let head = head.trim().to_string();
+    let body = body.trim().to_string();
+
+    let (headers, name, filename) = extract_part_headers(head);
+
+    if name.is_none() {
+        return Err(FormPartNameMissing.into());
+    }
+
+    let first_char = if body.is_empty() {
         None
     } else {
-        Some(content[0].chars().next().unwrap_or_default())
+        Some(body.chars().next().unwrap_or_default())
     };
 
-    if first_char == Some('<') {
-        let filename = content[0].trim_start_matches('<').trim();
+    let mut part = if first_char == Some('<') {
+        let filename = body.trim_start_matches('<').trim();
         // todo could be nicer
         let filepath = format!("{}/{}", directory, filename);
         let reader = std::fs::File::open(filepath)?;
-        Ok(reqwest::blocking::multipart::Part::reader(reader))
+        model::Part::reader(reader)
     } else if first_char.is_some() {
-        Ok(reqwest::blocking::multipart::Part::bytes(
-            content.join("\n").into_bytes(),
-        ))
+        model::Part::bytes(body.into_bytes())
     } else {
-        Ok(reqwest::blocking::multipart::Part::text(content.join("\n")))
+        model::Part::text(body)
+    };
+
+    if let Some(filename) = filename {
+        part = part.file_name(filename);
     }
+
+    part = part.headers(headers);
+
+    Ok((name.unwrap(), part))
 }
 
 fn extract_part_headers(
-    headers: Vec<String>,
-) -> (reqwest::header::HeaderMap, Option<String>, Option<String>) {
+    headers_raw: String,
+) -> (HashMap<String, String>, Option<String>, Option<String>) {
     let mut name = None;
     let mut filename = None;
-    let mut header_map = reqwest::header::HeaderMap::new();
+    let mut header_map = HashMap::new();
+    let headers = headers_raw.lines();
 
     for line in headers {
         if line
@@ -131,10 +111,7 @@ fn extract_part_headers(
 
         if line.contains(':') {
             let (key, value) = line.split_once(':').unwrap();
-            header_map.insert(
-                reqwest::header::HeaderName::from_str(key.trim()).unwrap(),
-                reqwest::header::HeaderValue::from_str(value.trim()).unwrap(),
-            );
+            header_map.insert(key.trim().to_string(), value.trim().to_string());
         }
     }
 
@@ -175,12 +152,22 @@ mod tests {
         let body = r#"Content-Disposition: form-data; name="image"; filename="Cargo.lock"
 Content-Type: application/octet-stream
 
-< ../Cargo.lock"#;
+< ../Cargo.lock"#
+            .to_string();
 
-        let body_content = body.lines().map(String::from).collect::<Vec<String>>();
-
-        let maybe_part = extract_form_part(body_content, "..");
+        let maybe_part = extract_form_part(body, "..");
 
         assert!(maybe_part.is_ok());
+
+        let (name, part) = maybe_part.unwrap();
+
+        assert_eq!(name, "image");
+
+        assert!(part.headers.is_some());
+
+        let headers = part.headers.unwrap();
+
+        assert_eq!(headers.len(), 1);
+        assert!(part.reader.is_some());
     }
 }

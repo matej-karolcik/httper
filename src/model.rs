@@ -1,88 +1,63 @@
 use std::collections::HashMap;
-use std::io::Read;
+use std::fs::File;
 use std::ops::ControlFlow;
 use std::str::FromStr;
 
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use thiserror::Error;
 
-#[derive(Clone, Debug)]
-pub(crate) struct Form<R>
-where
-    R: Read + Send + Clone + 'static,
-{
-    parts: HashMap<String, Part<R>>,
+#[derive(Debug)]
+pub struct Form {
+    parts: HashMap<String, Part>,
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct Part<R>
-where
-    R: Read + Send + Clone + 'static,
-{
-    headers: Option<HashMap<String, String>>,
-    filename: Option<String>,
-    reader: Option<R>,
-    bytes: Option<Vec<u8>>,
-    text: Option<String>,
+#[derive(Debug, Default)]
+pub struct Part {
+    pub headers: Option<HashMap<String, String>>,
+    pub filename: Option<String>,
+    pub reader: Option<File>,
+    pub bytes: Option<Vec<u8>>,
+    pub text: Option<String>,
 }
 
-impl<R> Part<R>
-where
-    R: Read + Send + Clone + 'static,
-{
-    fn text(value: String) -> Self {
+impl Part {
+    pub fn text(value: String) -> Self {
         Self {
             text: Some(value),
             ..Self::default()
         }
     }
 
-    fn bytes(value: Vec<u8>) -> Self {
+    pub fn bytes(value: Vec<u8>) -> Self {
         Self {
             bytes: Some(value),
             ..Self::default()
         }
     }
 
-    fn reader(r: R) -> Self {
+    pub fn reader(r: File) -> Self {
         Self {
             reader: Some(r),
             ..Self::default()
         }
     }
 
-    fn with_filename(self, value: String) -> Self {
-        let mut new = self.clone();
-        new.filename = Some(value);
-        new
-    }
-
-    fn with_headers(self, value: HashMap<String, String>) -> Self {
-        let mut new = self.clone();
-        new.headers = Some(value);
-        new
-    }
-}
-
-impl<R> Default for Part<R>
-where
-    R: Read + Send + Clone + 'static,
-{
-    fn default() -> Self {
+    pub fn file_name(self, value: String) -> Self {
         Self {
-            headers: None,
-            filename: None,
-            reader: None,
-            bytes: None,
-            text: None,
+            filename: Some(value),
+            ..self
+        }
+    }
+
+    pub fn headers(self, value: HashMap<String, String>) -> Self {
+        Self {
+            headers: Some(value),
+            ..self
         }
     }
 }
 
-impl<R> TryInto<reqwest::blocking::multipart::Part> for Part<R>
-where
-    R: Read + Send + Clone + 'static,
-{
+impl TryInto<reqwest::blocking::multipart::Part> for Part {
     type Error = Error;
 
     fn try_into(self) -> Result<reqwest::blocking::multipart::Part, Self::Error> {
@@ -124,6 +99,31 @@ where
         }
 
         Ok(part)
+    }
+}
+
+impl Form {
+    pub fn new() -> Self {
+        Self {
+            parts: HashMap::new(),
+        }
+    }
+
+    pub fn part(&mut self, name: String, part: Part) {
+        self.parts.insert(name, part);
+    }
+}
+
+impl TryInto<reqwest::blocking::multipart::Form> for Form {
+    type Error = Error;
+
+    fn try_into(self) -> Result<reqwest::blocking::multipart::Form, Self::Error> {
+        let mut form = reqwest::blocking::multipart::Form::new();
+        for (name, part) in self.parts {
+            form = form.part(name, part.try_into()?);
+        }
+
+        Ok(form)
     }
 }
 

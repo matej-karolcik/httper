@@ -135,7 +135,7 @@ fn attach_body(
         "multipart/form-data" => {
             let form = parse_form_data(content_type, content, directory)?;
 
-            builder.multipart(form)
+            builder.multipart(form.try_into()?)
         }
         _ => builder.body(content),
     };
