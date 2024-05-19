@@ -84,11 +84,14 @@ fn extract_part_headers(
     let headers = headers_raw.lines();
 
     for line in headers {
-        if line
-            .to_lowercase()
-            .trim()
-            .starts_with("content-disposition")
-        {
+        let canonized = line.to_lowercase();
+        let canonized = canonized.trim();
+
+        if canonized.starts_with("content-type") {
+            continue;
+        }
+
+        if canonized.starts_with("content-disposition") {
             let disposition = line.split_once(':').unwrap().1;
             let parts = disposition.split(';').collect::<Vec<&str>>();
 
@@ -138,13 +141,12 @@ mod tests {
 
     #[test]
     fn test_extract_form_body() {
-        let form = parse_form_data(
+        parse_form_data(
             " multipart/form-data; boundary=foo".to_string(),
             CONTENT.to_string(),
-            "../testdata",
-        );
-
-        assert!(form.is_ok());
+            "testdata",
+        )
+        .unwrap();
     }
 
     #[test]
@@ -155,11 +157,7 @@ Content-Type: application/octet-stream
 < ../Cargo.lock"#
             .to_string();
 
-        let maybe_part = extract_form_part(body, "..");
-
-        assert!(maybe_part.is_ok());
-
-        let (name, part) = maybe_part.unwrap();
+        let (name, part) = extract_form_part(body, "testdata").unwrap();
 
         assert_eq!(name, "image");
 

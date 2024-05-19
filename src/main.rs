@@ -8,8 +8,8 @@ use crate::error::Error::{ResponseBody, SendRequest};
 
 mod error;
 mod form;
-mod parse;
 mod model;
+mod parse;
 
 fn main() -> Result<()> {
     let cmd = clap::Command::new("httper")
