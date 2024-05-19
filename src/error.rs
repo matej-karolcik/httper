@@ -29,9 +29,6 @@ pub(crate) enum Error {
     #[error("Empty request file: {0}")]
     EmptyRequest(String),
 
-    #[error("No request line found: {0}")]
-    NoRequestLine(String),
-
     #[error("Not enough parts in request line: {0}")]
     NotEnoughParts(String),
 }

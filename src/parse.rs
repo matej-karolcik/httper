@@ -5,8 +5,7 @@ use reqwest::blocking::RequestBuilder;
 
 use crate::error::Error;
 use crate::error::Error::{
-    EmptyRequest, InvalidMethod, InvalidUrl, NoRequestLine, NotEnoughParts, RequestBody,
-    SendRequest,
+    EmptyRequest, InvalidMethod, InvalidUrl, NotEnoughParts, RequestBody, SendRequest,
 };
 use crate::form::parse_form_data;
 
@@ -26,9 +25,7 @@ pub fn parse_request(
         .join("\n");
 
     let (head, body) = content.split_once("\n\n").unwrap_or((content.as_str(), ""));
-    let (first_line, headers) = head
-        .split_once('\n')
-        .ok_or(NoRequestLine(body.to_string()))?;
+    let (first_line, headers) = head.split_once('\n').unwrap_or((head, ""));
 
     let parts = first_line
         .split(' ')
