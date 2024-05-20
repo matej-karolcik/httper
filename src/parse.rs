@@ -15,20 +15,44 @@ pub fn parse_requests(
     client: reqwest::blocking::Client,
     directory: &str,
 ) -> Result<Vec<reqwest::blocking::Request>> {
-    let re = regex::Regex::new(r"POST|GET|PUT|PATCH|HEAD|OPTIONS|CONNECT|TRACE|DELETE").unwrap();
+    let lines = content
+        .lines()
+        .filter_map(|line| {
+            let line_trimmed = line.trim_start();
+            if line_trimmed.starts_with('#') || line_trimmed.starts_with("//") {
+                return None;
+            }
 
-    let requests_raw = re.split(content).map(String::from).collect::<Vec<String>>();
+            Some(line_trimmed)
+        })
+        .collect::<Vec<_>>();
+
+    let re = regex::Regex::new(r"^POST|GET|PUT|PATCH|HEAD|OPTIONS|CONNECT|TRACE|DELETE").unwrap();
+    let mut requests_raw = vec![];
+
+    for line in lines {
+        if re.is_match(line) {
+            requests_raw.push(vec![line.to_string()]);
+            continue;
+        }
+
+        let last = requests_raw.last_mut();
+
+        if let Some(last) = last {
+            last.push(line.to_string());
+        } else {
+            requests_raw.push(vec![line.to_string()]);
+        }
+    }
 
     let mut requests = vec![];
 
     for request_raw in requests_raw {
-        if request_raw.trim().is_empty() {
-            continue;
-        }
-
-        println!("{}", request_raw);
-
-        requests.push(parse_one(request_raw.as_str(), &client, directory)?);
+        requests.push(parse_one(
+            request_raw.join("\n").as_str(),
+            &client,
+            directory,
+        )?);
     }
 
     Ok(requests)

@@ -434,7 +434,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
- "http",
  "mime",
  "mime_guess",
  "regex",
