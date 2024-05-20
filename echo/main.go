@@ -97,8 +97,8 @@ func main() {
 	const addr = ":8080"
 	fmt.Println("Listening on", addr)
 
-	certFile := path.Join(wd, "localhost+1.pem")
-	keyFile := path.Join(wd, "localhost+1-key.pem")
+	certFile := path.Join(wd, "certs/localhost+1.pem")
+	keyFile := path.Join(wd, "certs/localhost+1-key.pem")
 
 	if err := http.ListenAndServeTLS(addr, certFile, keyFile, nil); err != nil {
 		panic(err)

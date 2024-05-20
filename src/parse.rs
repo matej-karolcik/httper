@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::vec;
 
 use anyhow::Result;
 use reqwest::blocking::RequestBuilder;
@@ -9,9 +10,33 @@ use crate::error::Error::{
 };
 use crate::form::parse_form_data;
 
-pub fn parse_request(
+pub fn parse_requests(
     content: &str,
     client: reqwest::blocking::Client,
+    directory: &str,
+) -> Result<Vec<reqwest::blocking::Request>> {
+    let re = regex::Regex::new(r"POST|GET|PUT|PATCH|HEAD|OPTIONS|CONNECT|TRACE|DELETE").unwrap();
+
+    let requests_raw = re.split(content).map(String::from).collect::<Vec<String>>();
+
+    let mut requests = vec![];
+
+    for request_raw in requests_raw {
+        if request_raw.trim().is_empty() {
+            continue;
+        }
+
+        println!("{}", request_raw);
+
+        requests.push(parse_one(request_raw.as_str(), &client, directory)?);
+    }
+
+    Ok(requests)
+}
+
+fn parse_one(
+    content: &str,
+    client: &reqwest::blocking::Client,
     directory: &str,
 ) -> Result<reqwest::blocking::Request, Error> {
     if content.trim().is_empty() {

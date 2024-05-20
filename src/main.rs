@@ -50,8 +50,21 @@ fn main() -> Result<()> {
         .danger_accept_invalid_certs(true)
         .build()?;
 
-    let request = parse::parse_request(content.as_str(), client.clone(), directory)?;
+    let requests = parse::parse_requests(content.as_str(), client.clone(), directory)?;
 
+    for request in requests {
+        send_one(request, &client, output, verbose).unwrap();
+    }
+
+    Ok(())
+}
+
+fn send_one(
+    request: reqwest::blocking::Request,
+    client: &reqwest::blocking::Client,
+    output: Option<&String>,
+    verbose: bool,
+) -> Result<()> {
     if verbose {
         println!("\n{:?}", request);
         let body = request.body();
