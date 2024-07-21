@@ -1,11 +1,12 @@
-POST https://localhost:8080/form-data
+POST https://localhost:8080/form-data?debug&headers
 Content-Type: multipart/form-data; boundary=foo
 
 --foo
 Content-Disposition: form-data; name="image"; filename="Cargo.lock"
 Content-Type: application/octet-stream
 
-< ../Cargo.lock
+< ../.gitignore
+< ../makefile
 --foo
 content-Disposition: form-data; name="title"
 Content-Type: text/plain
@@ -13,4 +14,20 @@ Content-Type: text/plain
 test text
 
 foobar
+--foo
+Content-Type: text/plain
+
+test text
+
+foobar
 --foo--
+content-Disposition: form-data; filename="foobar42"; name="title"
+Content-Type: text/plain
+
+test text
+
+foobar
+--foo--
+
+###
+https://localhost:8080/

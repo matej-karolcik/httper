@@ -5,6 +5,8 @@ Content-Type: application/json
     "name": "foo"
 }
 
+###
+
 POST https://localhost:8080/json
 Content-Type: application/json
 
@@ -12,6 +14,8 @@ Content-Type: application/json
     "name": "John Doe",
     "age": 25
 }
+
+###
 
 POST https://localhost:8080/form-data
 Content-Type: multipart/form-data; boundary=foo

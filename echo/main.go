@@ -25,6 +25,8 @@ func main() {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
+
+		_, _ = fmt.Fprintln(w, "Authorized")
 	})
 
 	http.HandleFunc("/basic-auth", func(w http.ResponseWriter, r *http.Request) {
@@ -36,12 +38,7 @@ func main() {
 
 		_, _ = fmt.Fprintln(w, "Authorized")
 	})
-	http.HandleFunc("/json", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
+	http.HandleFunc("POST /json", func(w http.ResponseWriter, r *http.Request) {
 		content, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -56,12 +53,7 @@ func main() {
 		_, _ = fmt.Fprintf(w, "Content-length: %d\n", len(content))
 	})
 
-	http.HandleFunc("/form-data", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-
+	http.HandleFunc("POST /form-data", func(w http.ResponseWriter, r *http.Request) {
 		reader, err := r.MultipartReader()
 		if err == nil && reader != nil {
 			for {
@@ -82,12 +74,28 @@ func main() {
 					_, _ = fmt.Fprintln(w, string(content))
 				}
 
+				if r.URL.Query().Has("debug") {
+					_, _ = fmt.Fprintln(w)
+				}
+
+				if r.URL.Query().Has("headers") {
+					for k, v := range part.Header {
+						_, _ = fmt.Fprintf(w, "%s: %s\n", k, v)
+					}
+				}
+
 				_, _ = fmt.Fprintf(w, "Content-length: %d\n", len(content))
 			}
 		}
 	})
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {})
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Has("query") {
+			for k, v := range r.URL.Query() {
+				_, _ = fmt.Fprintf(w, "%s: %s\n", k, v)
+			}
+		}
+	})
 
 	wd, err := os.Getwd()
 	if err != nil {
@@ -100,7 +108,7 @@ func main() {
 	certFile := path.Join(wd, "certs/localhost+1.pem")
 	keyFile := path.Join(wd, "certs/localhost+1-key.pem")
 
-	if err := http.ListenAndServeTLS(addr, certFile, keyFile, nil); err != nil {
+	if err = http.ListenAndServeTLS(addr, certFile, keyFile, nil); err != nil {
 		panic(err)
 	}
 }

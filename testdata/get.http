@@ -1,1 +1,1 @@
-GET https://localhost:8080
+GET https://localhost:8080/?{{param}}&query&param1=foobar
