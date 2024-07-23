@@ -17,16 +17,16 @@ import (
 var (
 	client = &http.Client{}
 
-	debug = flag.Bool("debug", false, "debug mode")
+	debug = flag.Bool(
+		"debug",
+		false,
+		"debug mode, more verbose output",
+	)
 )
 
 func main() {
 	flag.Parse()
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
-	slog.SetDefault(logger)
+	initLogger()
 
 	input := flag.Arg(0)
 	if input == "" {
@@ -103,4 +103,20 @@ func printResult(response *http.Response, duration time.Duration) {
 	if err = w.Flush(); err != nil {
 		slog.Error("flushing tabwriter", "err", err)
 	}
+}
+
+func initLogger() {
+	level := slog.LevelInfo
+	if *debug {
+		level = slog.LevelDebug
+	}
+
+	logger := slog.New(
+		slog.NewTextHandler(
+			os.Stdout, &slog.HandlerOptions{
+				Level: level,
+			},
+		),
+	)
+	slog.SetDefault(logger)
 }

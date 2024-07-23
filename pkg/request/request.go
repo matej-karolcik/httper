@@ -40,6 +40,9 @@ func splitRequests(content string) []string {
 func splitRequest(content string) (essentials, headers, body string) {
 	var head string
 	head, body, _ = strings.Cut(content, "\n\n")
+
+	head = strings.ReplaceAll(head, "\n    ", "")
+
 	essentials, headers, _ = strings.Cut(head, "\n")
 
 	essentials = strings.TrimSpace(essentials)

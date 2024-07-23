@@ -1,0 +1,7 @@
+GET https://localhost:8080/?
+    foo=bar&
+    bar=baz&
+    baz=foo&
+    query
+Content-Type: application/json
+Foo: Bar
