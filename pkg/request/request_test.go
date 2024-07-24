@@ -2,6 +2,7 @@ package request
 
 import (
 	"github.com/stretchr/testify/assert"
+	"net/http"
 	"os"
 	"testing"
 )
@@ -52,4 +53,12 @@ test text
 
 foobar
 --foo--`, body)
+}
+
+func TestParseEssentials(t *testing.T) {
+	method, parsedUrl, proto := parseEssentials("GET https://localhost:8080/http2?{{param}}&query&param1=foobar HTTP/2")
+
+	assert.Equal(t, http.MethodGet, method)
+	assert.NotNil(t, parsedUrl)
+	assert.Equal(t, "HTTP/2", proto)
 }

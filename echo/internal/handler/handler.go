@@ -4,10 +4,29 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/draw"
+	"image/jpeg"
 	"io"
 	"net/http"
 	"strings"
 )
+
+func Image(w http.ResponseWriter, r *http.Request) {
+	im := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	draw.Draw(im, im.Bounds(), image.White, image.Point{}, draw.Src)
+	if err := jpeg.Encode(w, im, nil); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func Http2(w http.ResponseWriter, r *http.Request) {
+	_, _ = fmt.Fprintf(w, "Protocol: %s\n", r.Proto)
+	if !strings.HasPrefix(r.Proto, "HTTP/2") {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+}
 
 func Bearer(w http.ResponseWriter, r *http.Request) {
 	const bearerPrefix = "Bearer "

@@ -1,26 +1,36 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"golang.org/x/net/http2"
+	"httper/pkg/env"
+	"httper/pkg/finish"
 	"httper/pkg/request"
-	"io"
 	"log/slog"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"path"
-	"text/tabwriter"
+	"strings"
 	"time"
 )
 
 var (
-	client = &http.Client{}
-
-	debug = flag.Bool(
-		"debug",
+	save = flag.Bool(
+		"save",
 		false,
-		"debug mode, more verbose output",
+		"save response to file",
+	)
+	envFile = flag.String(
+		"env-file",
+		"",
+		"env file to be used to replace placeholders",
+	)
+	environment = flag.String(
+		"env",
+		"",
+		"env to be used to replace placeholders",
 	)
 )
 
@@ -28,31 +38,50 @@ func main() {
 	flag.Parse()
 	initLogger()
 
-	input := flag.Arg(0)
-	if input == "" {
-		slog.Error("1st arg must be input file")
+	if err := validateInput(); err != nil {
+		slog.Error("validating input", "err", err)
 		os.Exit(1)
 	}
 
-	slog.Debug("input file", "name", input)
-
-	if err := run(input); err != nil {
+	if err := run(flag.Arg(0)); err != nil {
 		slog.Error("running http", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(input string) error {
-	if _, err := os.Stat(input); err != nil {
-		return fmt.Errorf("cannot stat file at %s: %w", input, err)
+func validateInput() error {
+	input := flag.Arg(0)
+	if input == "" {
+		return errors.New("1st arg must be input file")
 	}
 
+	if _, err := os.Stat(input); err != nil {
+		return fmt.Errorf("cannot stat file at %s", input)
+	}
+
+	if *envFile != "" {
+		if _, err := os.Stat(*envFile); err != nil {
+			return fmt.Errorf("cannot stat file at %s", *envFile)
+		}
+	}
+
+	slog.Debug("input file", "name", input)
+
+	return nil
+}
+
+func run(input string) error {
 	contentRaw, err := os.ReadFile(input)
 	if err != nil {
 		return fmt.Errorf("cannot read file at %s: %w", input, err)
 	}
 
 	content := string(contentRaw)
+
+	if envMap := loadEnv(*envFile, *environment); envMap != nil {
+		content = envMap.Replace(content)
+	}
+
 	httpRequests, err := request.Create(content, path.Dir(input))
 	if err != nil {
 		return fmt.Errorf("cannot create basic httpRequest: %w", err)
@@ -65,14 +94,30 @@ func run(input string) error {
 	return nil
 }
 
-func sendRequest(httpRequest *http.Request) {
-	if *debug {
-		if dump, err := httputil.DumpRequest(httpRequest, true); err == nil {
-			slog.Debug("http request", "dump", string(dump))
-		} else {
-			slog.Info("request", "request", httpRequest)
-		}
+func loadEnv(envFile, environment string) env.Environment {
+	if envFile == "" {
+		return nil
 	}
+
+	envs, err := env.Parse(envFile)
+	if err != nil {
+		slog.Error("parsing env file", "err", err)
+		return nil
+	}
+
+	return envs.Get(environment)
+}
+
+func sendRequest(httpRequest *http.Request) {
+	fmt.Println(httpRequest.URL)
+
+	transport := http.DefaultTransport
+	// todo prior knowledge
+	if strings.HasPrefix(httpRequest.Proto, "HTTP/2") {
+		transport = &http2.Transport{}
+	}
+
+	client := &http.Client{Transport: transport}
 
 	start := time.Now()
 	response, err := client.Do(httpRequest)
@@ -80,43 +125,17 @@ func sendRequest(httpRequest *http.Request) {
 		slog.Error("sending request", "err", err)
 	}
 
-	printResult(response, time.Since(start))
-}
-
-func printResult(response *http.Response, duration time.Duration) {
-	responseBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		slog.Error("reading response body", "err", err)
-	}
-
-	w := tabwriter.NewWriter(os.Stdout, 20, 20, 1, ' ', tabwriter.Debug)
-
-	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintf(w, "Status\t%d\n", response.StatusCode)
-	_, _ = fmt.Fprintf(w, "Duration\t%s\n", duration)
-	_, _ = fmt.Fprintf(w, "Content-Length\t%d\n", len(responseBody))
-
-	if *debug {
-		_, _ = fmt.Fprintf(w, "Response:\n%s\n", string(responseBody))
-	}
-
-	if err = w.Flush(); err != nil {
-		slog.Error("flushing tabwriter", "err", err)
-	}
+	finish.Handle(response, time.Since(start), *save)
 }
 
 func initLogger() {
-	level := slog.LevelInfo
-	if *debug {
-		level = slog.LevelDebug
-	}
-
 	logger := slog.New(
 		slog.NewTextHandler(
 			os.Stdout, &slog.HandlerOptions{
-				Level: level,
+				Level: slog.LevelInfo,
 			},
 		),
 	)
+
 	slog.SetDefault(logger)
 }

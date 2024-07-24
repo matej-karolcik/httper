@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/stretchr/testify/assert"
 	"io"
+	"os"
 	"testing"
 )
 
@@ -15,7 +16,9 @@ func TestGetFiles(t *testing.T) {
 	bodyRaw := `< ../../testdata/bearer.http
 < ../../testdata/get.http`
 
-	r, err := getFiles(bodyRaw)
+	wd, err := os.Getwd()
+	assert.NoError(t, err)
+	r, err := getFiles(bodyRaw, wd)
 	assert.NoError(t, err)
 
 	actual := new(bytes.Buffer)

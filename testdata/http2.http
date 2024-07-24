@@ -1,0 +1,1 @@
+GET https://localhost:8080/http2?{{param}}&query&param1=foobar HTTP/2

@@ -8,10 +8,33 @@ import (
 	"net/textproto"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 )
 
-var splitRegex = regexp.MustCompile(`(?m)^###`)
+var (
+	splitRequestsRegex = regexp.MustCompile(`(?m)^###`)
+
+	methods = []string{
+		http.MethodGet,
+		http.MethodHead,
+		http.MethodOptions,
+		http.MethodDelete,
+		http.MethodPatch,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodConnect,
+		"GRPC",
+		"WEBSOCKET",
+		"GRAPHQL",
+	}
+
+	protos = []string{
+		"HTTP/1.1",
+		"HTTP/2",
+		"HTTP/2 (Prior Knowledge)",
+	}
+)
 
 func Create(content, wd string) ([]*http.Request, error) {
 	requests := make([]*http.Request, 0)
@@ -34,7 +57,7 @@ func Create(content, wd string) ([]*http.Request, error) {
 }
 
 func splitRequests(content string) []string {
-	return splitRegex.Split(content, -1)
+	return splitRequestsRegex.Split(content, -1)
 }
 
 func splitRequest(content string) (essentials, headers, body string) {
@@ -70,20 +93,9 @@ func parse(content, wd string) (*http.Request, error) {
 		return nil, fmt.Errorf("too few lines in the header of the file: %s", essentialsRaw)
 	}
 
-	essentials := strings.Split(lines[0], " ")
-
-	var method, urlRaw string
-
-	if len(essentials) < 2 {
-		method = http.MethodGet
-		urlRaw = essentials[0]
-	} else {
-		method, urlRaw = essentials[0], essentials[1]
-	}
-
-	parsedUrl, err := url.Parse(urlRaw)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse url: %s", urlRaw)
+	method, parsedUrl, proto := parseEssentials(lines[0])
+	if parsedUrl == nil {
+		return nil, fmt.Errorf("could not parse url from: %s", lines[0])
 	}
 
 	request, err := http.NewRequest(method, parsedUrl.String(), body)
@@ -91,9 +103,73 @@ func parse(content, wd string) (*http.Request, error) {
 		return nil, fmt.Errorf("cannot create a request: %w", err)
 	}
 
+	if proto != "" {
+		request.Proto = proto
+	}
+
 	transferHeaders(request, headers)
 
 	return request, nil
+}
+
+func parseEssentials(essentialsRaw string) (
+	method string,
+	parsedUrl *url.URL,
+	proto string,
+) {
+	for _, part := range strings.Split(essentialsRaw, " ") {
+		part = strings.TrimSpace(part)
+
+		if method == "" {
+			if parsed := parseMethod(part); parsed != "" {
+				method = parsed
+				continue
+			}
+		}
+
+		if parsedUrl == nil {
+			if parsed := parseUrl(part); parsed != nil {
+				parsedUrl = parsed
+				continue
+			}
+		}
+
+		if proto == "" {
+			if parsed := parseProto(part); parsed != "" {
+				proto = part
+				continue
+			}
+		}
+	}
+
+	if method == "" {
+		method = http.MethodGet
+	}
+
+	return
+}
+
+func parseProto(raw string) string {
+	if slices.Contains(protos, raw) {
+		return raw
+	}
+	return ""
+}
+
+func parseUrl(raw string) *url.URL {
+	if parsed, err := url.Parse(raw); err == nil {
+		return parsed
+	}
+
+	return nil
+}
+
+func parseMethod(raw string) string {
+	if slices.Contains(methods, raw) {
+		return raw
+	}
+
+	return ""
 }
 
 func transferHeaders(request *http.Request, headers textproto.MIMEHeader) {
