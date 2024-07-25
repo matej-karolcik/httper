@@ -28,8 +28,8 @@ func main() {
 
 	fmt.Println("Listening on", address)
 
-	certFile := path.Join(wd, "certs/localhost+1.pem")
-	keyFile := path.Join(wd, "certs/localhost+1-key.pem")
+	certFile := path.Join(wd, "certs/localhost+2.pem")
+	keyFile := path.Join(wd, "certs/localhost+2-key.pem")
 
 	if err = http.ListenAndServeTLS(
 		address,

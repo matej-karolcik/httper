@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"golang.org/x/net/http2"
 	"httper/pkg/env"
 	"httper/pkg/finish"
 	"httper/pkg/request"
@@ -14,6 +13,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"golang.org/x/net/http2"
 )
 
 var (

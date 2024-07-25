@@ -1,8 +1,13 @@
 mkcert:
-	mkcert localhost 127.0.0.1 ::1
+	mkcert -install
+	mkcert -cert-file echo/certs/localhost+2.pem -key-file echo/certs/localhost+2-key.pem localhost 127.0.0.1 ::1
 
 echo-server:
 	cd echo && go run main.go
 
 test:
 	go test -v ./...
+
+run-all:
+	go build
+	for file in "testdata"/*.http; do if [ -f "$$file" ]; then echo "Running $$file"; ./httper $$file; fi; done
