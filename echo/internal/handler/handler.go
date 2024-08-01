@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-func Image(w http.ResponseWriter, r *http.Request) {
+func Image(w http.ResponseWriter, _ *http.Request) {
 	im := image.NewRGBA(image.Rect(0, 0, 100, 100))
 	draw.Draw(im, im.Bounds(), image.White, image.Point{}, draw.Src)
 	if err := jpeg.Encode(w, im, nil); err != nil {
