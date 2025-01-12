@@ -25,8 +25,6 @@ foobar
 --foo--`
 
 func TestSplitRequests(t *testing.T) {
-	wd, _ := os.Getwd()
-	t.Log(wd)
 	content, err := os.ReadFile("../../testdata/three.http")
 	assert.NoError(t, err)
 

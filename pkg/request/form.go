@@ -76,7 +76,7 @@ func getFormDataBody(boundary, body, wd string) (io.Reader, error) {
 
 func parseField(content, wd string, position int) (*FormField, error) {
 	headersRaw, bodyRaw, _ := strings.Cut(content, "\n\n")
-	headersRaw = strings.Trim(headersRaw, "--")
+	headersRaw = strings.TrimPrefix(headersRaw, "--")
 	headersRaw = strings.TrimSpace(headersRaw)
 
 	headers := parseHeaders(headersRaw)
@@ -138,10 +138,10 @@ func getDispositionParts(disposition string) (name, filename string) {
 	for _, part := range dispositionParts {
 		part = strings.TrimSpace(part)
 		if strings.HasPrefix(part, "name=") {
-			name = strings.Trim(part, "name=")
+			name = strings.TrimPrefix(part, "name=")
 			name = strings.Trim(name, "\"")
 		} else if strings.HasPrefix(part, "filename=") {
-			filename = strings.Trim(part, "filename=")
+			filename = strings.TrimPrefix(part, "filename=")
 			filename = strings.Trim(filename, "\"")
 		}
 	}
