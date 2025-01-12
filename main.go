@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"httper/pkg/env"
-	"httper/pkg/finish"
+	"httper/pkg/finalize"
 	"httper/pkg/request"
 	"log/slog"
 	"net/http"
@@ -32,6 +32,11 @@ var (
 		"env",
 		"",
 		"env to be used to replace placeholders",
+	)
+	verbose = flag.Bool(
+		"v",
+		false,
+		"verbose output",
 	)
 )
 
@@ -78,9 +83,13 @@ func run(input string) error {
 	}
 
 	content := string(contentRaw)
+	client := http.DefaultClient
 
-	if envMap := loadEnv(*envFile, *environment); envMap != nil {
-		content = envMap.Replace(content)
+	if *environment != "" {
+		envMap := loadEnv(*envFile, *environment)
+		if envMap != nil {
+			content = envMap.Replace(content)
+		}
 	}
 
 	httpRequests, err := request.Create(content, path.Dir(input))
@@ -89,7 +98,7 @@ func run(input string) error {
 	}
 
 	for _, httpRequest := range httpRequests {
-		sendRequest(httpRequest)
+		sendRequest(httpRequest, client)
 	}
 
 	return nil
@@ -106,10 +115,10 @@ func loadEnv(envFile, environment string) env.Environment {
 		return nil
 	}
 
-	return envs.Get(environment)
+	return envs[environment]
 }
 
-func sendRequest(httpRequest *http.Request) {
+func sendRequest(httpRequest *http.Request, client *http.Client) {
 	fmt.Println(httpRequest.URL)
 
 	transport := http.DefaultTransport
@@ -118,15 +127,25 @@ func sendRequest(httpRequest *http.Request) {
 		transport = &http2.Transport{}
 	}
 
-	client := &http.Client{Transport: transport}
+	client.Transport = transport
 
 	start := time.Now()
 	response, err := client.Do(httpRequest)
 	if err != nil {
 		slog.Error("sending request", "err", err)
+		return
 	}
 
-	finish.Handle(response, time.Since(start), *save)
+	defer func() {
+		_ = response.Body.Close()
+	}()
+
+	finalize.Response(
+		response,
+		time.Since(start),
+		*save,
+		*verbose,
+	)
 }
 
 func initLogger() {

@@ -1,4 +1,4 @@
-package finish
+package finalize
 
 import (
 	"github.com/stretchr/testify/assert"

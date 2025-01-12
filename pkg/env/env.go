@@ -24,11 +24,6 @@ func (e Environment) Replace(content string) string {
 
 type EnvironmentMap map[string]Environment
 
-type SSLConfiguration struct {
-	ClientCertificate    string
-	ClientCertificateKey string
-}
-
 func (m EnvironmentMap) Get(name string) Environment {
 	return m[name]
 }
@@ -47,8 +42,6 @@ func Parse(path string) (EnvironmentMap, error) {
 	if err = json.NewDecoder(f).Decode(&result); err != nil {
 		return nil, fmt.Errorf("cannot decode env file: %w", err)
 	}
-
-	for k, v :=
 
 	return result, nil
 }

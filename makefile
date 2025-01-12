@@ -1,5 +1,6 @@
 mkcert:
 	mkcert -install
+	mkdir -p echo/certs
 	mkcert -cert-file echo/certs/localhost+2.pem -key-file echo/certs/localhost+2-key.pem localhost 127.0.0.1 ::1
 
 echo-server:

@@ -29,7 +29,8 @@ func TestGetFiles(t *testing.T) {
 
 	expected := `GET https://localhost:8080/bearer
 Authorization: Bearer 42069
-GET https://localhost:8080
+
+GET https://localhost:8080/?{{param}}&query&param1=foobar
 `
 
 	assert.Equal(t, expected, actual.String())

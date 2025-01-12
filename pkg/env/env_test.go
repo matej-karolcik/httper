@@ -6,9 +6,13 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	envs, err := Parse("../../testdata/http-client.env.json")
+	envs, sslConfigs, err := Parse("../../testdata/http-client.env.json")
 	assert.NoError(t, err)
 
-	env := envs.Get("dev")
+	env := envs["dev"]
 	assert.NotNil(t, env)
+
+	sslConfig := sslConfigs["dev"]
+	assert.Equal(t, "../echo/certs/localhost+2.pem", sslConfig.ClientCertificate)
+	assert.Equal(t, "../echo/certs/localhost+2-key.pem", sslConfig.ClientCertificateKey)
 }
